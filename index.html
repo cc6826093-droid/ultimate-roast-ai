@@ -1,0 +1,282 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>终极审判官 AI</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#100b13;color:white;font-family:Arial,"Microsoft YaHei",sans-serif}
+header{padding:18px;text-align:center;border-bottom:1px solid #63204d}
+h1{font-size:30px;margin:5px;color:#ff3d9e;text-shadow:0 0 22px #a70066}
+small{color:#c6a7ba}
+main{max-width:760px;margin:auto;padding:18px}
+.panel{background:#211525;border:1px solid #673251;border-radius:22px;padding:20px;margin:16px 0}
+.stage{height:260px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.eyes{display:flex;gap:20px;position:absolute;top:36px}
+.eye{width:125px;height:115px;background:#fff4fa;border:6px solid #ff3d9e;border-radius:50%;position:relative;overflow:hidden;box-shadow:0 0 25px #ff3d9e66,inset 0 -10px 15px #dcb9ce}
+.iris{position:absolute;width:65px;height:65px;border-radius:50%;background:radial-gradient(circle at 50% 50%,#09020b 0 27%,#f00087 29% 60%,#65135a 80%);left:24px;top:24px;transition:transform .38s cubic-bezier(.2,.8,.2,1)}
+.iris:after{content:"";position:absolute;top:9px;left:12px;width:17px;height:17px;border-radius:50%;background:white;box-shadow:19px 21px 0 -6px white}
+.mouth{position:absolute;top:166px;width:104px;height:25px;border-radius:12px 12px 55px 55px;background:#060206;border:5px solid #ff399b;overflow:visible;transition:height .12s}
+.tongue{position:absolute;top:8px;left:27px;width:40px;height:0;background:linear-gradient(90deg,#f42b80,#ff9cc3,#ed247a);border-radius:20px 20px 35px 35px;transition:height .3s;z-index:2}
+.speaking .mouth{animation:talk .23s infinite alternate}
+.speaking .tongue{height:90px}
+@keyframes talk{from{height:16px}to{height:58px}}
+.status{text-align:center;color:#caff39;font-weight:bold;min-height:24px}
+button,select,input,textarea{font:inherit}
+button{background:#ff3296;color:#150515;border:0;padding:14px;border-radius:14px;font-weight:bold;cursor:pointer}
+button:disabled{opacity:.4}
+button.secondary{background:#382338;color:white}
+input,textarea,select{width:100%;padding:13px;border:1px solid #79415e;border-radius:12px;background:#100c15;color:white;margin:7px 0}
+textarea{min-height:85px;resize:vertical}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row button{flex:1}
+label{display:block;margin:12px 0 5px}
+.result{white-space:pre-wrap;line-height:1.8;background:#120c17;border-radius:14px;padding:15px;min-height:85px}
+.warning{border-color:#ff3296}
+#gate{position:fixed;inset:0;background:#100b13;z-index:20;display:flex;align-items:center;justify-content:center;padding:20px}
+#gate .panel{max-width:480px;text-align:center}
+#gate label{display:flex;align-items:center;text-align:left;gap:10px}
+#gate input{width:auto}
+#preview{max-width:100%;max-height:240px;border-radius:12px;display:none;margin:10px auto}
+.tag{display:inline-block;color:#caff39;border:1px solid #caff39;border-radius:20px;padding:5px 12px;font-size:12px}
+</style>
+</head>
+<body>
+<div id="gate">
+<div class="panel warning">
+<h1>⚠️ 毒舌警告</h1>
+<h2>玻璃心请谨慎入场！</h2>
+<p>欢迎来到终极审判官。</p>
+<p>你的穿搭可能被吐槽，你的造型可能被审判。</p>
+<p>本平台仅供娱乐。锐评不代表客观事实，不进行歧视、威胁或针对天生外貌的人身羞辱。</p>
+<label><input type="checkbox" id="agree"> 我理解并自愿参加娱乐锐评。</label>
+<button id="enter" disabled style="width:100%">🔥 开庭！</button>
+</div>
+</div>
+
+<header>
+<h1>👁️ 终极审判官 AI</h1>
+<small>THE ULTIMATE ROAST JUDGE</small>
+</header>
+
+<main>
+<div class="panel">
+<div class="tag">LIVE CHARACTER</div>
+<div class="stage" id="stage">
+<div class="eyes">
+<div class="eye"><div class="iris" id="leftIris"></div></div>
+<div class="eye"><div class="iris" id="rightIris"></div></div>
+</div>
+<div class="mouth"><div class="tongue"></div></div>
+</div>
+<div class="status" id="status">🙄 正在观察人类...</div>
+</div>
+
+<div class="panel">
+<h3>🌍 语言 / Language</h3>
+<select id="language">
+<option value="zh-CN">🇨🇳 中文</option>
+<option value="en-US">🇺🇸 English</option>
+</select>
+
+<h3>🔥 毒舌强度</h3>
+<input type="range" id="level" min="1" max="5" value="3">
+<p id="levelName">🌶️ 3 · 毒舌模式</p>
+
+<h3>📸 上传照片</h3>
+<input type="file" id="photo" accept="image/*">
+<img id="preview" alt="照片预览">
+<small>目前仅预览照片，尚未连接真实视觉识别模型。</small>
+
+<h3>🎤 你想让 AI 锐评什么？</h3>
+<textarea id="prompt" placeholder="例如：锐评一下我的穿搭、发型和整体造型..."></textarea>
+
+<div class="row">
+<button id="roast">⚡ 开始锐评</button>
+<button class="secondary" id="stop">停止语音</button>
+</div>
+</div>
+
+<div class="panel">
+<h3>👑 女王审判结果</h3>
+<div class="result" id="result">审判官已经准备就绪...</div>
+<div class="row" style="margin-top:12px">
+<button id="speak">🔊 御姐语音朗读</button>
+<button class="secondary" id="copy">复制锐评</button>
+</div>
+<small>语音使用设备自带的中文或英文语音，具体音色取决于浏览器。</small>
+</div>
+
+<div class="panel">
+<h3>🌟 全球明星锐评</h3>
+<input id="celebrity" placeholder="输入明星名字 / Celebrity name">
+<button id="search">搜索公开人物资料</button>
+<p><small>搜索会打开维基百科。尚未连接明星照片识别数据库。</small></p>
+</div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+let phase="idle",speaking=false;
+let utterance=null;
+
+$("agree").onchange=()=>{
+ $("enter").disabled=!$("agree").checked;
+};
+$("enter").onclick=()=>{
+ $("gate").style.display="none";
+};
+
+const names=[
+"🌸 1 · 礼貌点评",
+"😏 2 · 轻度吐槽",
+"🌶️ 3 · 毒舌模式",
+"🔥 4 · 地狱级",
+"💀 5 · 终极审判"
+];
+$("level").oninput=()=>{
+ $("levelName").textContent=names[$("level").value-1];
+};
+
+function eyes(x1,y1,x2,y2){
+ $("leftIris").style.transform=`translate(${x1}px,${y1}px)`;
+ $("rightIris").style.transform=`translate(${x2}px,${y2}px)`;
+}
+const motions=[
+ ()=>eyes(0,0,0,0),
+ ()=>eyes(19,0,-19,0),
+ ()=>eyes(-20,0,20,0),
+ ()=>eyes(0,-29,0,-29),
+ ()=>eyes(0,23,0,23),
+ ()=>eyes(-21,-8,-21,-8),
+ ()=>eyes(21,6,21,6),
+ ()=>eyes(0,-36,0,-36)
+];
+function randomMotion(){
+ if(phase==="scan"){
+   const sequence=[
+    ()=>eyes(0,0,0,0),
+    ()=>eyes(20,0,-20,0),
+    ()=>eyes(-20,0,20,0)
+   ];
+   sequence[Math.floor(Math.random()*3)]();
+ }else if(phase==="think"){
+   eyes(0,-28,0,-28);
+ }else{
+   motions[Math.floor(Math.random()*motions.length)]();
+ }
+}
+setInterval(randomMotion,750);
+randomMotion();
+
+$("photo").onchange=e=>{
+ const file=e.target.files[0];
+ if(!file)return;
+ const img=$("preview");
+ img.src=URL.createObjectURL(file);
+ img.style.display="block";
+};
+
+const scripts={
+"zh-CN":[
+"嗯……这套造型整体挺有想法，发型和服装可以再协调一些。",
+"不是，你这搭配挺有意思啊。每件单品都想当主角。",
+"等会儿，你这身造型是开会没通知鞋子吗？它怎么跟其他衣服完全不在一个频道？",
+"我请问呢？上半身走红毯，下半身赶地铁，配饰还在旁边主持颁奖典礼？",
+"停！本庭宣布，这套造型涉嫌内部意见不统一！上衣要求独立，裤子申请辞职，鞋子已经连夜逃离现场！"
+],
+"en-US":[
+"Interesting. This look has potential, but the styling could be more coordinated.",
+"Every piece wants to be the main character. Nobody is sharing the spotlight.",
+"Hold on. Did your shoes miss the group chat? They clearly got a different dress code.",
+"Excuse me? The top is attending a gala, the pants are catching a train, and the accessories are hosting an awards show!",
+"Objection! This outfit is a fashion courtroom disaster. The jacket demands independence, the pants have resigned, and the shoes have left the building!"
+]
+};
+
+function setPhase(p,label){
+ phase=p;
+ $("status").textContent=label;
+ $("stage").classList.toggle("speaking",p==="talk");
+ randomMotion();
+}
+
+function speakText(text){
+ if(!("speechSynthesis" in window)){
+   $("status").textContent="此浏览器不支持语音";
+   return;
+ }
+ speechSynthesis.cancel();
+ const u=new SpeechSynthesisUtterance(text);
+ const lang=$("language").value;
+ u.lang=lang;
+ u.rate=lang==="zh-CN"?1.06:1;
+ u.pitch=.92;
+ const voices=speechSynthesis.getVoices();
+ const candidates=voices.filter(v=>
+   v.lang.toLowerCase().startsWith(lang.slice(0,2).toLowerCase())
+ );
+ const female=candidates.find(v=>/female|xiaoxiao|xiaoyi|tingting|samantha|zira|aria/i.test(v.name));
+ if(female)u.voice=female;
+ else if(candidates.length)u.voice=candidates[0];
+ u.onstart=()=>setPhase("talk","👄 女王正在锐评...");
+ u.onend=()=>setPhase("idle","🙄 审判结束");
+ u.onerror=()=>setPhase("idle","语音不可用，请检查设备语音设置");
+ utterance=u;
+ speechSynthesis.speak(u);
+}
+
+$("roast").onclick=()=>{
+ speechSynthesis.cancel();
+ const lang=$("language").value;
+ const level=Number($("level").value);
+ const target=$("prompt").value.trim();
+ const base=scripts[lang][level-1];
+ $("result").textContent="";
+ setPhase("scan","👁️ 正在扫描...");
+ setTimeout(()=>{
+   setPhase("think","🤔 正在组织毒舌语言...");
+   setTimeout(()=>{
+     const intro=lang==="zh-CN"?
+       (target?"关于你说的「"+target+"」：\n":""):
+       (target?"About your request: "+target+"\n":"");
+     const disclaimer=lang==="zh-CN"?
+       "\n\n（测试版预设台词，未实际分析照片。）":
+       "\n\n(Demo script. No actual photo analysis.)";
+     $("result").textContent=intro+base+disclaimer;
+     speakText(base);
+   },1300);
+ },1100);
+};
+
+$("speak").onclick=()=>{
+ const text=$("result").textContent;
+ if(text)speakText(text);
+};
+$("stop").onclick=()=>{
+ speechSynthesis.cancel();
+ setPhase("idle","🙄 已停止");
+};
+$("copy").onclick=async()=>{
+ const text=$("result").textContent;
+ try{
+  await navigator.clipboard.writeText(text);
+  $("status").textContent="✅ 已复制";
+ }catch(e){
+  $("status").textContent="请长按文字复制";
+ }
+};
+$("search").onclick=()=>{
+ const name=$("celebrity").value.trim();
+ if(!name)return;
+ window.open(
+  "https://"+($("language").value==="zh-CN"?"zh":"en")+
+  ".wikipedia.org/wiki/Special:Search?search="+encodeURIComponent(name),
+  "_blank"
+ );
+};
+</script>
+</body>
+</html>
