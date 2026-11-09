@@ -1,0 +1,351 @@
+
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>终极审判官</title><style>
+*{box-sizing:border-box}body{margin:0;background:#100b13;color:#fff;font-family:system-ui,'Microsoft YaHei',sans-serif}main{max-width:780px;margin:auto;padding:20px}h1{text-align:center;color:#ff48a8;font-size:32px}.sub{text-align:center;color:#d4a6c3}.panel{background:#241629;border:1px solid #714260;border-radius:22px;padding:20px;margin:16px 0}button,select,input,textarea{font:inherit}button{background:#ff3198;border:0;border-radius:14px;padding:13px 17px;font-weight:800;color:#170817;cursor:pointer}button:disabled{opacity:.45}button.secondary{background:#443047;color:white}select,textarea,input[type=file]{width:100%;background:#120e17;border:1px solid #79516e;border-radius:12px;color:white;padding:13px;margin:8px 0}input[type=range]{width:100%;accent-color:#ff3198}.row{display:flex;gap:10px;flex-wrap:wrap}.row button{flex:1}#preview{display:none;max-width:100%;max-height:270px;margin:12px auto;border-radius:16px}.stage{height:250px;position:relative;display:flex;justify-content:center}.eyes{position:absolute;top:35px;display:flex;gap:20px}.eye{width:124px;height:114px;border-radius:50%;background:#fff1fa;border:6px solid #ff3198;position:relative;overflow:hidden;box-shadow:0 0 25px #ff319855}.iris{position:absolute;left:24px;top:22px;width:65px;height:65px;border-radius:50%;background:radial-gradient(circle,#120012 0 29%,#f0008e 31% 60%,#64155b 85%);transition:transform .35s}.iris:after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:10px;left:13px}.mouth{position:absolute;top:164px;width:105px;height:26px;border:5px solid #ff3198;border-radius:15px 15px 50px 50px;background:#080108}.talk .mouth{animation:talk .32s infinite alternate}@keyframes talk{to{height:60px}}.tongue{position:absolute;top:8px;left:28px;width:39px;height:0;background:#ff78ae;border-radius:30px;transition:height .2s}.tongue,.talk .tongue{display:none!important}.status{text-align:center;color:#caff55;font-weight:700;min-height:26px}.result{white-space:pre-wrap;background:#110c17;border-radius:14px;padding:17px;line-height:1.8;min-height:100px}.note{font-size:13px;color:#c9acc2}#gate{position:fixed;inset:0;background:#100b13;z-index:5;display:grid;place-items:center;padding:16px}#gate .panel{max-width:460px}#gate label{display:flex;gap:10px;align-items:center;margin:16px 0}#gate input{width:20px;height:20px}
+</style></head><body>
+<div id="gate"><div class="panel"><h1>⚠️ 毒舌警告</h1><h2>玻璃心慎入</h2><p>这里是自愿参与的搞笑造型审判。评论聚焦可见的造型、服装、发型与表情，不针对身体特征进行羞辱。</p><label><input id="agree" type="checkbox">我同意参与娱乐锐评，并有权使用上传照片。</label><button id="enter" disabled style="width:100%">🔥 开庭</button></div></div>
+<main><h1>👁️ 终极审判官</h1><p class="sub">THE ULTIMATE ROAST JUDGE</p>
+<div class="panel"><div class="stage" id="stage"><div class="eyes"><div class="eye"><div class="iris" id="l"></div></div><div class="eye"><div class="iris" id="r"></div></div></div><div class="mouth"><div class="tongue"></div></div></div><div id="status" class="status">🙄 正在观察人类...</div></div>
+<div class="panel"><h3>🌍 语言</h3><select id="language"><option value="zh">中文</option><option value="en">English</option></select><h3>🔥 锐评强度</h3><input id="level" type="range" min="1" max="5" value="3"><p id="levelText">🌶️ 3 · 毒舌模式</p><h3>📸 上传照片</h3><input id="photo" type="file" accept="image/jpeg,image/png,image/webp"><img id="preview" alt="照片预览"><p class="note">照片不会在这个页面永久保存。</p><h3>🎯 指定锐评重点（可选）</h3><textarea id="prompt" placeholder="例如：重点吐槽穿搭和发型"></textarea><div class="row"><button id="roast">⚡ 开始锐评</button><button class="secondary" id="stop">停止语音</button></div></div>
+<div class="panel"><h3>👑 审判结果</h3><div class="result" id="result">上传照片后点击「开始锐评」。</div><div class="row" style="margin-top:12px"><button id="speak">🔊 毒蛇语音朗读</button><button id="copy" class="secondary">复制锐评</button></div><p class="note">语音由 ElevenLabs「毒蛇」生成。若账号额度、模型权限或接口受限，会明确显示错误。</p></div></main>
+<script>
+const $=id=>document.getElementById(id),API='https://wispy-sun-18eb.cc6826093.workers.dev';let audio=null,blobURL=null,phase='idle';
+$('agree').onchange=()=>{$('enter').disabled=!$('agree').checked};$('enter').onclick=()=>{$('gate').remove()};
+const labels=['🌸 1 · 轻轻吐槽','😏 2 · 开始阴阳','🌶️ 3 · 毒舌模式','🔥 4 · 火力全开','💀 5 · 终极审判'];$('level').oninput=()=>{$('levelText').textContent=labels[+$('level').value-1]};
+function state(p,t){phase=p;$('status').textContent=t;$('stage').classList.toggle('talk',p==='talk')}
+const motion=[[0,0,0,0],[19,0,-19,0],[-20,0,20,0],[0,-28,0,-28],[0,21,0,21],[-18,-7,-18,-7],[18,8,18,8]];
+setInterval(()=>{const m=phase==='think'?[0,-28,0,-28]:motion[Math.floor(Math.random()*motion.length)];$('l').style.transform=`translate(${m[0]}px,${m[1]}px)`;$('r').style.transform=`translate(${m[2]}px,${m[3]}px)`},850);
+$('photo').onchange=()=>{const f=$('photo').files[0];if(!f)return;if(!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size>5*1024*1024){state('idle','⚠️ 请选择小于 5MB 的 JPG/PNG/WebP 照片');$('photo').value='';return}if(blobURL)URL.revokeObjectURL(blobURL);blobURL=URL.createObjectURL(f);$('preview').src=blobURL;$('preview').style.display='block'};
+async function speak(text){if(!text)return;if(audio){audio.pause();audio=null}const btn=$('speak');btn.disabled=true;state('think','🎙️ 正在生成毒蛇语音...');try{const res=await fetch(API+'/api/speech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text.slice(0,800)})});if(!res.ok){const info=await res.json().catch(()=>({}));throw Error(info.providerStatus?'ElevenLabs 错误 '+info.providerStatus:(info.error||'语音服务暂不可用'))}const u=URL.createObjectURL(await res.blob());audio=new Audio(u);audio.onplay=()=>state('talk','👄 毒蛇正在锐评...');audio.onended=()=>{URL.revokeObjectURL(u);state('idle','🙄 审判结束')};audio.onerror=()=>{URL.revokeObjectURL(u);state('idle','⚠️ 音频播放失败')};await audio.play()}catch(e){state('idle','⚠️ '+e.message)}finally{btn.disabled=false}}
+$('roast').onclick=async()=>{const file=$('photo').files[0];if(!file){state('idle','📸 请先上传照片');return}state('think','👁️ 正在请求照片分析...');$('roast').disabled=true;try{const data=new FormData();data.append('image',file);data.append('level',$('level').value);data.append('language',$('language').value);data.append('prompt',$('prompt').value);const res=await fetch(API+'/api/roast',{method:'POST',body:data});const out=await res.json().catch(()=>({}));if(!res.ok||typeof out.roast!=='string')throw Error(out.error||'照片识别 AI 尚未接通');$('result').textContent=out.roast;state('idle','⚖️ 锐评已生成');await speak(out.roast)}catch(e){$('result').textContent='照片分析暂不可用：'+e.message+'。当前不会使用重复的预设台词冒充照片识别。';state('idle','⚠️ 照片识别尚未接通')}finally{$('roast').disabled=false}};
+$('speak').onclick=()=>{const t=$('result').textContent;if(t&&!t.startsWith('上传照片')&&!t.startsWith('照片分析暂不可用'))speak(t)};
+$('stop').onclick=()=>{if(audio){audio.pause();audio.currentTime=0}state('idle','🙄 已停止')};$('copy').onclick=async()=>{try{await navigator.clipboard.writeText($('result').textContent);state('idle','✅ 已复制')}catch{state('idle','请长按文字复制')}};
+</script>
+
+<script>
+(() => {
+  const get = id => document.getElementById(id);
+  const result = get("result");
+  const photo = get("photo");
+  if (!result || !photo) return;
+
+  const css = document.createElement("style");
+  css.textContent = `
+    .court-card {
+      margin: 20px 0;
+      padding: 20px;
+      border: 1px solid #c76c9e;
+      border-radius: 20px;
+      background: linear-gradient(140deg,#34203e,#170e1d);
+      color: white;
+    }
+    .court-card h2 { color:#ff8dc7; }
+    .court-card p { line-height:1.6; color:#ead1e0; }
+    .court-card button { margin:5px 4px; }
+    #courtImage {
+      display:none;
+      width:100%;
+      max-width:500px;
+      border-radius:14px;
+      margin:15px auto;
+    }
+  `;
+  document.head.appendChild(css);
+
+  const panel = document.createElement("section");
+  panel.className = "court-card";
+  panel.innerHTML = `
+    <h2>⚖️ 赛博审判书</h2>
+    <p>根据本次 AI 吐槽生成专属审判书。</p>
+    <button id="courtCreate" disabled>📜 生成审判书</button>
+    <button id="courtSave" disabled>⬇️ 保存图片</button>
+    <p id="courtStatus"></p>
+    <img id="courtImage" alt="审判书">
+  `;
+
+  result.closest(".panel").after(panel);
+
+  let savedURL = null;
+  let currentRoast = "";
+
+  function clean() {
+    get("courtCreate").disabled = true;
+    get("courtSave").disabled = true;
+    get("courtImage").style.display = "none";
+    get("courtStatus").textContent = "";
+    currentRoast = "";
+    if (savedURL) URL.revokeObjectURL(savedURL);
+    savedURL = null;
+  }
+
+  photo.addEventListener("change", clean);
+
+  new MutationObserver(() => {
+    const text = result.textContent.trim();
+
+    if (!photo.files[0] || !text) return;
+
+    if (
+      text.startsWith("上传照片") ||
+      text.startsWith("照片分析暂不可用")
+    ) {
+      clean();
+      return;
+    }
+
+    if (text !== currentRoast) {
+      currentRoast = text;
+      get("courtCreate").disabled = false;
+      get("courtSave").disabled = true;
+    }
+  }).observe(result, {
+    childList:true,
+    characterData:true,
+    subtree:true
+  });
+
+  function splitLines(ctx, text, maxWidth) {
+    const lines = [];
+    for (const paragraph of text.split("\n")) {
+      let line = "";
+      for (const char of paragraph) {
+        if (ctx.measureText(line + char).width > maxWidth && line) {
+          lines.push(line);
+          line = char;
+        } else {
+          line += char;
+        }
+      }
+      if (line) lines.push(line);
+    }
+    return lines;
+  }
+
+  // 根据判词关键词选择罪名和判决
+  function makeCharge(text) {
+    const groups = [
+      {
+        words:/头发|发型|刘海|染发|烫发/,
+        charge:"发型设计失控罪",
+        sentence:"责令暂停发型实验，先跟理发师把话说明白！"
+      },
+      {
+        words:/衣服|穿搭|外套|裤子|裙子|鞋子|服装/,
+        charge:"穿搭现场混乱罪",
+        sentence:"责令衣柜全体成员召开紧急会议，重新商量怎么搭配！"
+      },
+      {
+        words:/自拍|拍照|姿势|摆拍|镜头|表情/,
+        charge:"镜头表现迷惑罪",
+        sentence:"责令摄影师休息十分钟，等这套姿势想明白再开拍！"
+      },
+      {
+        words:/背景|灯光|光线|构图|角度/,
+        charge:"拍摄现场失控罪",
+        sentence:"责令重新研究镜头角度，别再让摄影师替构图背锅！"
+      }
+    ];
+
+    const matches = groups.filter(g => g.words.test(text));
+
+    if (matches.length) {
+      const choice = matches[Math.floor(Math.random() * matches.length)];
+      return choice;
+    }
+
+    return {
+      charge:"造型表现过于抽象罪",
+      sentence:"责令当事人向摄影师解释，这一套操作到底想表达什么！"
+    };
+  }
+
+  get("courtCreate").onclick = async () => {
+    const file = photo.files[0];
+    if (!file || !currentRoast) return;
+
+    get("courtCreate").disabled = true;
+    get("courtStatus").textContent = "⚖️ 正在制作审判书...";
+
+    let temporaryURL;
+
+    try {
+      temporaryURL = URL.createObjectURL(file);
+
+      const image = new Image();
+      await new Promise((resolve,reject) => {
+        image.onload = resolve;
+        image.onerror = reject;
+        image.src = temporaryURL;
+      });
+
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = 1000;
+
+      ctx.font = "32px sans-serif";
+      const lines = splitLines(ctx,currentRoast,840);
+
+      canvas.height = Math.max(1370,1000 + lines.length * 48);
+
+      const background = ctx.createLinearGradient(
+        0,0,1000,canvas.height
+      );
+      background.addColorStop(0,"#34203e");
+      background.addColorStop(1,"#110b18");
+
+      ctx.fillStyle = background;
+      ctx.fillRect(0,0,1000,canvas.height);
+
+      ctx.strokeStyle = "#f4a1ce";
+      ctx.lineWidth = 5;
+      ctx.strokeRect(35,35,930,canvas.height-70);
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ffd0e9";
+      ctx.font = "bold 66px sans-serif";
+      ctx.fillText("终极审判书",500,125);
+
+      ctx.font = "24px sans-serif";
+      ctx.fillText("ULTIMATE ROAST JUDGE",500,170);
+
+      // 等比例裁剪照片
+      const x=220,y=210,w=560,h=390;
+      const scale=Math.max(
+        w/image.naturalWidth,
+        h/image.naturalHeight
+      );
+      const sw=w/scale,sh=h/scale;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(x,y,w,h,20);
+      ctx.clip();
+      ctx.drawImage(
+        image,
+        (image.naturalWidth-sw)/2,
+        (image.naturalHeight-sh)/2,
+        sw,sh,x,y,w,h
+      );
+      ctx.restore();
+
+      const verdict=makeCharge(currentRoast);
+
+      ctx.textAlign="left";
+      ctx.fillStyle="#ff92c8";
+      ctx.font="bold 38px sans-serif";
+      ctx.fillText("罪名",80,665);
+
+      ctx.fillStyle="#ffffff";
+      ctx.fillText(verdict.charge,80,720);
+
+      ctx.fillStyle="#ff92c8";
+      ctx.fillText("审判判词",80,795);
+
+      ctx.font="32px sans-serif";
+      ctx.fillStyle="#f8eaf3";
+
+      let textY=855;
+      for(const line of lines){
+        ctx.fillText(line,80,textY);
+        textY+=48;
+      }
+
+      ctx.fillStyle="#ff92c8";
+      ctx.font="bold 36px sans-serif";
+      ctx.fillText("判决结果",80,textY+45);
+
+      ctx.fillStyle="#ffffff";
+      ctx.font="29px sans-serif";
+      const sentenceLines=splitLines(
+        ctx,verdict.sentence,840
+      );
+
+      let sentenceY=textY+100;
+      for(const line of sentenceLines){
+        ctx.fillText(line,80,sentenceY);
+        sentenceY+=44;
+      }
+
+      ctx.font="24px sans-serif";
+      ctx.fillStyle="#d2b7c9";
+      ctx.fillText(
+        "案件编号："+Date.now().toString(36).toUpperCase(),
+        80,canvas.height-110
+      );
+      ctx.fillText(
+        "纯属娱乐 · 非真实法律判决",
+        80,canvas.height-70
+      );
+
+      const blob=await new Promise((resolve,reject)=>{
+        canvas.toBlob(
+          b=>b?resolve(b):reject(Error("生成图片失败")),
+          "image/png"
+        );
+      });
+
+      if(savedURL)URL.revokeObjectURL(savedURL);
+      savedURL=URL.createObjectURL(blob);
+
+      get("courtImage").src=savedURL;
+      get("courtImage").style.display="block";
+      get("courtSave").disabled=false;
+      get("courtStatus").textContent=
+        "✅ 审判书生成成功！";
+
+    } catch(error) {
+      get("courtStatus").textContent=
+        "⚠️ 生成失败："+error.message;
+    } finally {
+      if(temporaryURL)URL.revokeObjectURL(temporaryURL);
+      get("courtCreate").disabled=false;
+    }
+  };
+
+  get("courtSave").onclick=()=>{
+    if(!savedURL)return;
+
+    const a=document.createElement("a");
+    a.href=savedURL;
+    a.download="终极审判书.png";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+})();
+</script>
+
+<style>
+.upgrade-panel{background:linear-gradient(145deg,#30172f,#171020);border:1px solid #995a91;border-radius:22px;padding:20px;margin:18px auto;max-width:780px}.upgrade-panel h2{color:#ff91c8;margin:0 0 10px}.upgrade-panel p{color:#dfbdd4;line-height:1.6}.upgrade-panel .pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}.upgrade-panel .pair label{background:#1a101c;border:1px dashed #995a91;padding:12px;border-radius:15px;display:block}.upgrade-panel .pair img{width:100%;height:170px;object-fit:contain;background:#100b13;border-radius:12px;display:none}.upgrade-panel button{margin:10px 0}.upgrade-panel .out{white-space:pre-wrap;line-height:1.8;background:#120c17;padding:15px;border-radius:14px;min-height:48px}.achievement{display:inline-block;padding:9px 12px;border:1px solid #70465e;border-radius:12px;margin:5px;color:#e9cbdc;background:#211423}.achievement.unlocked{border-color:#ff81b8;background:#45203b;color:#fff}.upgrade-panel .note{font-size:12px}
+@media(max-width:480px){.upgrade-panel .pair{grid-template-columns:1fr 1fr}.upgrade-panel .pair img{height:120px}.upgrade-panel{margin:14px 12px}}
+</style>
+<section class="upgrade-panel" id="pkSection"><h2>⚔️ 双人赛博 PK</h2><p>两张照片，AI 同场比较穿搭、造型与拍照表现。只吐槽可选择的风格，不评价天生长相。</p><div class="pair"><label>选手 A<input type="file" id="pkA" accept="image/jpeg,image/png,image/webp"><img id="pkPreviewA" alt="选手A预览"></label><label>选手 B<input type="file" id="pkB" accept="image/jpeg,image/png,image/webp"><img id="pkPreviewB" alt="选手B预览"></label></div><button id="pkStart">🔥 开始双人 PK</button><div class="out" id="pkResult">等待两位选手入场。</div><p class="note">使用现有照片识别 AI 分析两张合成照片。需要网络及后端 AI 正常运行。</p></section>
+<section class="upgrade-panel" id="achievementSection"><h2>🏆 赛博成就墙</h2><p>成就在当前设备上保存。清除浏览器数据后可能重置。</p><div id="achievementList"></div></section>
+<script>
+(()=>{
+ const $=id=>document.getElementById(id);
+ const achievements=[['first','初次开庭','成功完成一次照片锐评'],['court','判决已下','成功生成一张审判书'],['pk','双雄会审','成功完成一次双人 PK'],['max','火力全开','用五级强度完成一次审判']];
+ const unlocked=new Set(JSON.parse(localStorage.getItem('roastAchievements')||'[]'));
+ function render(){ $('achievementList').innerHTML=achievements.map(([id,name,desc])=>`<div class="achievement ${unlocked.has(id)?'unlocked':''}">${unlocked.has(id)?'🏅':'🔒'} <strong>${name}</strong><small style="display:block">${desc}</small></div>`).join('');}
+ function award(id){if(unlocked.has(id))return;unlocked.add(id);try{localStorage.setItem('roastAchievements',JSON.stringify([...unlocked]))}catch{}render();}
+ render();
+ const result=$('result');let last='';
+ new MutationObserver(()=>{const t=result.textContent.trim();if(t===last)return;last=t;if(!t||t.startsWith('照片分析暂不可用')||t.startsWith('上传照片'))return;award('first');if($('level').value==='5')award('max');}).observe(result,{childList:true,characterData:true,subtree:true});
+ $('courtImage')?.addEventListener('load',()=>award('court'));
+ for(const side of ['A','B'])$('pk'+side).addEventListener('change',()=>{const f=$('pk'+side).files[0],img=$('pkPreview'+side);if(!f){img.style.display='none';return;}img.src=URL.createObjectURL(f);img.style.display='block';});
+ async function readImage(file){if(!file||!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5*1024*1024)throw Error('每张照片必须是小于 5MB 的 JPG、PNG 或 WebP');return await createImageBitmap(file);}
+ $('pkStart').onclick=async()=>{
+  const btn=$('pkStart'),out=$('pkResult');btn.disabled=true;out.textContent='👁️ AI 正在分析两位选手...';
+  try{
+   const [a,b]=await Promise.all([readImage($('pkA').files[0]),readImage($('pkB').files[0])]);
+   const canvas=document.createElement('canvas');canvas.width=1000;canvas.height=650;const c=canvas.getContext('2d');c.fillStyle='#1a1020';c.fillRect(0,0,1000,650);
+   function draw(im,x){const scale=Math.min(480/im.width,555/im.height);const w=im.width*scale,h=im.height*scale;c.drawImage(im,x+(480-w)/2,50+(555-h)/2,w,h);}
+   draw(a,10);draw(b,510);c.font='bold 35px sans-serif';c.fillStyle='#fff';c.fillText('A',30,40);c.fillText('B',530,40);a.close();b.close();
+   const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',.82));if(!blob)throw Error('照片合成失败');
+   const fd=new FormData();fd.append('image',blob,'pk.jpg');fd.append('level',$('level').value);fd.append('language',$('language').value);
+   fd.append('prompt',`这是双人造型PK合成图，左半边标A，右半边标B。请真正观察两边照片的服装、发型造型、配饰、表情和拍摄姿势，用有趣且自然的口语分别点评A和B，给出明确获胜者及基于照片的理由。不要机械重复固定开场白，不要编造看不见的细节，不评论天生五官、体型、肤色或其他固有特征。只输出这场PK的完整结果。`);
+   const res=await fetch('https://wispy-sun-18eb.cc6826093.workers.dev/api/roast',{method:'POST',body:fd});const data=await res.json().catch(()=>({}));if(!res.ok||!data.roast)throw Error(data.error||'AI 服务暂时不可用');out.textContent=data.roast;award('pk');
+  }catch(e){out.textContent='⚠️ '+e.message;}finally{btn.disabled=false;}
+ };
+})();
+</script>
+</body></html>
