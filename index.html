@@ -1,3 +1,4 @@
+
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>终极审判官</title><style>
 *{box-sizing:border-box}body{margin:0;background:#100b13;color:#fff;font-family:system-ui,'Microsoft YaHei',sans-serif}main{max-width:780px;margin:auto;padding:20px}h1{text-align:center;color:#ff48a8;font-size:32px}.sub{text-align:center;color:#d4a6c3}.panel{background:#241629;border:1px solid #714260;border-radius:22px;padding:20px;margin:16px 0}button,select,input,textarea{font:inherit}button{background:#ff3198;border:0;border-radius:14px;padding:13px 17px;font-weight:800;color:#170817;cursor:pointer}button:disabled{opacity:.45}button.secondary{background:#443047;color:white}select,textarea,input[type=file]{width:100%;background:#120e17;border:1px solid #79516e;border-radius:12px;color:white;padding:13px;margin:8px 0}input[type=range]{width:100%;accent-color:#ff3198}.row{display:flex;gap:10px;flex-wrap:wrap}.row button{flex:1}#preview{display:none;max-width:100%;max-height:270px;margin:12px auto;border-radius:16px}.stage{height:250px;position:relative;display:flex;justify-content:center}.eyes{position:absolute;top:35px;display:flex;gap:20px}.eye{width:124px;height:114px;border-radius:50%;background:#fff1fa;border:6px solid #ff3198;position:relative;overflow:hidden;box-shadow:0 0 25px #ff319855}.iris{position:absolute;left:24px;top:22px;width:65px;height:65px;border-radius:50%;background:radial-gradient(circle,#120012 0 29%,#f0008e 31% 60%,#64155b 85%);transition:transform .35s}.iris:after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:10px;left:13px}.mouth{position:absolute;top:164px;width:105px;height:26px;border:5px solid #ff3198;border-radius:15px 15px 50px 50px;background:#080108}.talk .mouth{animation:talk .2s infinite alternate}@keyframes talk{to{height:60px}}.tongue{position:absolute;top:8px;left:28px;width:39px;height:0;background:#ff78ae;border-radius:30px;transition:height .2s}.talk .tongue{height:70px}.status{text-align:center;color:#caff55;font-weight:700;min-height:26px}.result{white-space:pre-wrap;background:#110c17;border-radius:14px;padding:17px;line-height:1.8;min-height:100px}.note{font-size:13px;color:#c9acc2}#gate{position:fixed;inset:0;background:#100b13;z-index:5;display:grid;place-items:center;padding:16px}#gate .panel{max-width:460px}#gate label{display:flex;gap:10px;align-items:center;margin:16px 0}#gate input{width:20px;height:20px}
 </style></head><body>
@@ -18,4 +19,299 @@ async function speak(text){if(!text)return;if(audio){audio.pause();audio=null}co
 $('roast').onclick=async()=>{const file=$('photo').files[0];if(!file){state('idle','📸 请先上传照片');return}state('think','👁️ 正在请求照片分析...');$('roast').disabled=true;try{const data=new FormData();data.append('image',file);data.append('level',$('level').value);data.append('language',$('language').value);data.append('prompt',$('prompt').value);const res=await fetch(API+'/api/roast',{method:'POST',body:data});const out=await res.json().catch(()=>({}));if(!res.ok||typeof out.roast!=='string')throw Error(out.error||'照片识别 AI 尚未接通');$('result').textContent=out.roast;state('idle','⚖️ 锐评已生成');await speak(out.roast)}catch(e){$('result').textContent='照片分析暂不可用：'+e.message+'。当前不会使用重复的预设台词冒充照片识别。';state('idle','⚠️ 照片识别尚未接通')}finally{$('roast').disabled=false}};
 $('speak').onclick=()=>{const t=$('result').textContent;if(t&&!t.startsWith('上传照片')&&!t.startsWith('照片分析暂不可用'))speak(t)};
 $('stop').onclick=()=>{if(audio){audio.pause();audio.currentTime=0}state('idle','🙄 已停止')};$('copy').onclick=async()=>{try{await navigator.clipboard.writeText($('result').textContent);state('idle','✅ 已复制')}catch{state('idle','请长按文字复制')}};
-</script></body></html>
+</script>
+
+<script>
+(() => {
+  const get = id => document.getElementById(id);
+  const result = get("result");
+  const photo = get("photo");
+  if (!result || !photo) return;
+
+  const css = document.createElement("style");
+  css.textContent = `
+    .court-card {
+      margin: 20px 0;
+      padding: 20px;
+      border: 1px solid #c76c9e;
+      border-radius: 20px;
+      background: linear-gradient(140deg,#34203e,#170e1d);
+      color: white;
+    }
+    .court-card h2 { color:#ff8dc7; }
+    .court-card p { line-height:1.6; color:#ead1e0; }
+    .court-card button { margin:5px 4px; }
+    #courtImage {
+      display:none;
+      width:100%;
+      max-width:500px;
+      border-radius:14px;
+      margin:15px auto;
+    }
+  `;
+  document.head.appendChild(css);
+
+  const panel = document.createElement("section");
+  panel.className = "court-card";
+  panel.innerHTML = `
+    <h2>⚖️ 赛博审判书</h2>
+    <p>根据本次 AI 吐槽生成专属审判书。</p>
+    <button id="courtCreate" disabled>📜 生成审判书</button>
+    <button id="courtSave" disabled>⬇️ 保存图片</button>
+    <p id="courtStatus"></p>
+    <img id="courtImage" alt="审判书">
+  `;
+
+  result.closest(".panel").after(panel);
+
+  let savedURL = null;
+  let currentRoast = "";
+
+  function clean() {
+    get("courtCreate").disabled = true;
+    get("courtSave").disabled = true;
+    get("courtImage").style.display = "none";
+    get("courtStatus").textContent = "";
+    currentRoast = "";
+    if (savedURL) URL.revokeObjectURL(savedURL);
+    savedURL = null;
+  }
+
+  photo.addEventListener("change", clean);
+
+  new MutationObserver(() => {
+    const text = result.textContent.trim();
+
+    if (!photo.files[0] || !text) return;
+
+    if (
+      text.startsWith("上传照片") ||
+      text.startsWith("照片分析暂不可用")
+    ) {
+      clean();
+      return;
+    }
+
+    if (text !== currentRoast) {
+      currentRoast = text;
+      get("courtCreate").disabled = false;
+      get("courtSave").disabled = true;
+    }
+  }).observe(result, {
+    childList:true,
+    characterData:true,
+    subtree:true
+  });
+
+  function splitLines(ctx, text, maxWidth) {
+    const lines = [];
+    for (const paragraph of text.split("\n")) {
+      let line = "";
+      for (const char of paragraph) {
+        if (ctx.measureText(line + char).width > maxWidth && line) {
+          lines.push(line);
+          line = char;
+        } else {
+          line += char;
+        }
+      }
+      if (line) lines.push(line);
+    }
+    return lines;
+  }
+
+  // 根据判词关键词选择罪名和判决
+  function makeCharge(text) {
+    const groups = [
+      {
+        words:/头发|发型|刘海|染发|烫发/,
+        charge:"发型设计失控罪",
+        sentence:"责令暂停发型实验，先跟理发师把话说明白！"
+      },
+      {
+        words:/衣服|穿搭|外套|裤子|裙子|鞋子|服装/,
+        charge:"穿搭现场混乱罪",
+        sentence:"责令衣柜全体成员召开紧急会议，重新商量怎么搭配！"
+      },
+      {
+        words:/自拍|拍照|姿势|摆拍|镜头|表情/,
+        charge:"镜头表现迷惑罪",
+        sentence:"责令摄影师休息十分钟，等这套姿势想明白再开拍！"
+      },
+      {
+        words:/背景|灯光|光线|构图|角度/,
+        charge:"拍摄现场失控罪",
+        sentence:"责令重新研究镜头角度，别再让摄影师替构图背锅！"
+      }
+    ];
+
+    const matches = groups.filter(g => g.words.test(text));
+
+    if (matches.length) {
+      const choice = matches[Math.floor(Math.random() * matches.length)];
+      return choice;
+    }
+
+    return {
+      charge:"造型表现过于抽象罪",
+      sentence:"责令当事人向摄影师解释，这一套操作到底想表达什么！"
+    };
+  }
+
+  get("courtCreate").onclick = async () => {
+    const file = photo.files[0];
+    if (!file || !currentRoast) return;
+
+    get("courtCreate").disabled = true;
+    get("courtStatus").textContent = "⚖️ 正在制作审判书...";
+
+    let temporaryURL;
+
+    try {
+      temporaryURL = URL.createObjectURL(file);
+
+      const image = new Image();
+      await new Promise((resolve,reject) => {
+        image.onload = resolve;
+        image.onerror = reject;
+        image.src = temporaryURL;
+      });
+
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = 1000;
+
+      ctx.font = "32px sans-serif";
+      const lines = splitLines(ctx,currentRoast,840);
+
+      canvas.height = Math.max(1370,1000 + lines.length * 48);
+
+      const background = ctx.createLinearGradient(
+        0,0,1000,canvas.height
+      );
+      background.addColorStop(0,"#34203e");
+      background.addColorStop(1,"#110b18");
+
+      ctx.fillStyle = background;
+      ctx.fillRect(0,0,1000,canvas.height);
+
+      ctx.strokeStyle = "#f4a1ce";
+      ctx.lineWidth = 5;
+      ctx.strokeRect(35,35,930,canvas.height-70);
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ffd0e9";
+      ctx.font = "bold 66px sans-serif";
+      ctx.fillText("终极审判书",500,125);
+
+      ctx.font = "24px sans-serif";
+      ctx.fillText("ULTIMATE ROAST JUDGE",500,170);
+
+      // 等比例裁剪照片
+      const x=220,y=210,w=560,h=390;
+      const scale=Math.max(
+        w/image.naturalWidth,
+        h/image.naturalHeight
+      );
+      const sw=w/scale,sh=h/scale;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(x,y,w,h,20);
+      ctx.clip();
+      ctx.drawImage(
+        image,
+        (image.naturalWidth-sw)/2,
+        (image.naturalHeight-sh)/2,
+        sw,sh,x,y,w,h
+      );
+      ctx.restore();
+
+      const verdict=makeCharge(currentRoast);
+
+      ctx.textAlign="left";
+      ctx.fillStyle="#ff92c8";
+      ctx.font="bold 38px sans-serif";
+      ctx.fillText("罪名",80,665);
+
+      ctx.fillStyle="#ffffff";
+      ctx.fillText(verdict.charge,80,720);
+
+      ctx.fillStyle="#ff92c8";
+      ctx.fillText("审判判词",80,795);
+
+      ctx.font="32px sans-serif";
+      ctx.fillStyle="#f8eaf3";
+
+      let textY=855;
+      for(const line of lines){
+        ctx.fillText(line,80,textY);
+        textY+=48;
+      }
+
+      ctx.fillStyle="#ff92c8";
+      ctx.font="bold 36px sans-serif";
+      ctx.fillText("判决结果",80,textY+45);
+
+      ctx.fillStyle="#ffffff";
+      ctx.font="29px sans-serif";
+      const sentenceLines=splitLines(
+        ctx,verdict.sentence,840
+      );
+
+      let sentenceY=textY+100;
+      for(const line of sentenceLines){
+        ctx.fillText(line,80,sentenceY);
+        sentenceY+=44;
+      }
+
+      ctx.font="24px sans-serif";
+      ctx.fillStyle="#d2b7c9";
+      ctx.fillText(
+        "案件编号："+Date.now().toString(36).toUpperCase(),
+        80,canvas.height-110
+      );
+      ctx.fillText(
+        "纯属娱乐 · 非真实法律判决",
+        80,canvas.height-70
+      );
+
+      const blob=await new Promise((resolve,reject)=>{
+        canvas.toBlob(
+          b=>b?resolve(b):reject(Error("生成图片失败")),
+          "image/png"
+        );
+      });
+
+      if(savedURL)URL.revokeObjectURL(savedURL);
+      savedURL=URL.createObjectURL(blob);
+
+      get("courtImage").src=savedURL;
+      get("courtImage").style.display="block";
+      get("courtSave").disabled=false;
+      get("courtStatus").textContent=
+        "✅ 审判书生成成功！";
+
+    } catch(error) {
+      get("courtStatus").textContent=
+        "⚠️ 生成失败："+error.message;
+    } finally {
+      if(temporaryURL)URL.revokeObjectURL(temporaryURL);
+      get("courtCreate").disabled=false;
+    }
+  };
+
+  get("courtSave").onclick=()=>{
+    if(!savedURL)return;
+
+    const a=document.createElement("a");
+    a.href=savedURL;
+    a.download="终极审判书.png";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+})();
+</script>
+
+</body></html>
