@@ -630,4 +630,79 @@ $('stop').onclick=()=>{if(audio){audio.pause();audio.currentTime=0}state('idle',
  });
 })();
 </script>
+
+<script>
+(()=>{
+  const section=document.getElementById('pkSection');
+  const result=document.getElementById('pkResult');
+  if(!section||!result)return;
+
+  // 删除重复说明
+  const intro=section.querySelector('p');
+  if(intro)intro.textContent=
+    '两张照片，AI 同场比拼造型、表情、穿搭与拍照表现！';
+
+  // 让每次PK的开场方式轮换
+  const openings=[
+    '我请问呢','不知道的还以为',
+    '等一下，这画面有点东西',
+    '先别急着宣布冠军',
+    '这场比赛我得好好说道说道',
+    '今天这两位选手挺有节目效果'
+  ];
+  let round=0;
+  const originalFetch=window.fetch.bind(window);
+
+  window.fetch=(input,options={})=>{
+    const url=typeof input==='string'?input:input?.url||'';
+    if(url.includes('/api/roast')&&
+       options.body instanceof FormData&&
+       options.body.get('image')?.name==='pk.jpg'){
+      const opening=openings[round++%openings.length];
+      const old=options.body.get('prompt')||'';
+      options.body.set('prompt',old+
+        '\n本场开头请自然使用「'+opening+
+        '」引入，不要用「不是哥们儿」开场。'+
+        '请具体评论两边可见的表情、神态、穿搭、发型和拍摄方式。'+
+        '最后必须单独写一行：最终胜者：A获胜 或 最终胜者：B获胜。');
+    }
+    return originalFetch(input,options);
+  };
+
+  // 更可靠地识别获胜者
+  function updateWinner(){
+    const text=result.textContent.trim();
+    if(!text||text.includes('正在分析')||
+       text.startsWith('⚠️'))return;
+
+    const match=text.match(
+      /最终胜者[：:\s]*(?:选手)?([AB])(?:获胜|胜出|赢得比赛)/i
+    )||text.match(
+      /(?:最终|所以|这场PK|综合来看)[^。！？\n]{0,55}?(?:选手)?([AB])(?:获胜|胜出|赢了|胜利)/i
+    );
+
+    if(!match)return;
+    const winner=match[1].toUpperCase();
+    const labels=section.querySelectorAll('.pair label');
+    labels.forEach(label=>{
+      label.classList.remove('pk-winner');
+      label.querySelector('.pk-crown')?.remove();
+    });
+
+    const label=labels[winner==='A'?0:1];
+    label.classList.add('pk-winner');
+
+    const crown=document.createElement('span');
+    crown.className='pk-crown';
+    crown.textContent='👑';
+    label.appendChild(crown);
+  }
+
+  new MutationObserver(()=>{
+    setTimeout(updateWinner,200);
+  }).observe(result,{
+    childList:true,characterData:true,subtree:true
+  });
+})();
+</script>
 </body></html>
