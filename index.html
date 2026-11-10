@@ -348,4 +348,103 @@ $('stop').onclick=()=>{if(audio){audio.pause();audio.currentTime=0}state('idle',
  };
 })();
 </script>
+
+<style>
+#pkSection .pair{position:relative;isolation:isolate}
+#pkSection .pair::after{
+  content:"VS";
+  position:absolute;left:50%;top:55%;
+  transform:translate(-50%,-50%) rotate(-8deg);
+  z-index:4;pointer-events:none;
+  font-size:clamp(27px,5vw,55px);
+  font-weight:1000;font-style:italic;
+  color:#fff4a6;
+  -webkit-text-stroke:2px #a21b55;
+  text-shadow:0 0 12px #ffda38,0 0 25px #ff3998;
+}
+#pkSection .pair label{position:relative;min-width:0}
+#pkSection .pair label.pk-winner{
+  border:3px solid #ffd34b;
+  box-shadow:0 0 18px #ffd34b,0 0 30px #e7a52277;
+  animation:pkGoldFlash .5s ease-in-out 3;
+}
+@keyframes pkGoldFlash{
+  0%,100%{box-shadow:0 0 8px #ffd34b}
+  50%{box-shadow:0 0 35px 10px #ffe34c,0 0 65px #ffba00}
+}
+.pk-crown{
+  position:absolute;z-index:5;
+  top:42px;left:50%;
+  transform:translateX(-50%);
+  font-size:clamp(45px,7vw,85px);
+  line-height:1;
+  filter:drop-shadow(0 0 12px gold);
+  pointer-events:none;
+  animation:pkCrownIn .55s ease-out both;
+}
+@keyframes pkCrownIn{
+  from{opacity:0;transform:translate(-50%,-25px) scale(.5)}
+  to{opacity:1;transform:translate(-50%,0) scale(1)}
+}
+</style>
+<script>
+(()=>{
+  const section=document.getElementById('pkSection');
+  if(!section)return;
+  const result=document.getElementById('pkResult');
+  const start=document.getElementById('pkStart');
+  const pair=section.querySelector('.pair');
+  const labels=pair.querySelectorAll('label');
+
+  section.querySelectorAll('.note').forEach(el=>el.remove());
+
+  function reset(){
+    labels.forEach(el=>{
+      el.classList.remove('pk-winner');
+      el.querySelector('.pk-crown')?.remove();
+    });
+  }
+
+  function detectWinner(text){
+    const t=text.replace(/\s+/g,'');
+    const patterns=[
+      /(?:最终|本场|这场|所以|因此|综合|宣布|判定|结果)[^。！？\n]{0,35}?(A|B)(?:获胜|胜出|完胜|赢了|胜利)/i,
+      /(?:胜者|获胜者|赢家|冠军|胜利方|胜出方)[：:是为]*(A|B)/i,
+      /\b(A|B)(?:获胜|胜出|完胜|赢了|胜利)/i,
+      /(?:选手|这场PK)[^。！？\n]{0,20}?(A|B)(?:获胜|胜出|完胜|赢了)/i
+    ];
+    for(const re of patterns){
+      const match=t.match(re);
+      if(match)return match[1].toUpperCase();
+    }
+    return null;
+  }
+
+  function update(){
+    const text=result.textContent.trim();
+    if(!text||text.startsWith('⚠️')||
+       text.includes('正在分析')||
+       text.includes('等待两位'))return;
+    reset();
+    const winner=detectWinner(text);
+    if(!winner)return;
+    const label=labels[winner==='A'?0:1];
+    label.classList.add('pk-winner');
+    const crown=document.createElement('span');
+    crown.className='pk-crown';
+    crown.textContent='👑';
+    crown.setAttribute('aria-label','获胜者');
+    label.appendChild(crown);
+  }
+
+  start.addEventListener('click',reset);
+  ['pkA','pkB'].forEach(id=>{
+    document.getElementById(id).addEventListener('change',reset);
+  });
+  new MutationObserver(update).observe(result,{
+    childList:true,characterData:true,subtree:true
+  });
+  update();
+})();
+</script>
 </body></html>
