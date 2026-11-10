@@ -166,6 +166,9 @@ $('pkStart').onclick=async()=>{const b=$('pkStart'),token=++pkToken;b.disabled=t
       round++;
       count.textContent = "第 " + round + " / 10 回合";
       addMessage("ai", reply);
+      if (round === 6) {
+  document.dispatchEvent(new Event("battleRoundSix"));
+      }
       history.push({role:"user",content:message});
       history.push({role:"assistant",content:reply});
 
@@ -372,13 +375,13 @@ $('pkStart').onclick=async()=>{const b=$('pkStart'),token=++pkToken;b.disabled=t
     chat.scrollTop = chat.scrollHeight;
   }
 
-  send.addEventListener("click", () => {
+  document.addEventListener("battleRoundSix", () => {
     if (finalStarted || finished) return;
 
     const n = parseInt(count.textContent.match(/\d+/)?.[0] || "0", 10);
     const input = document.getElementById("battleInput");
 
-    if (n === 7) {
+    if (n === 6) {
       finalStarted = true;
       const music = sounds.battle;
 music.pause();
