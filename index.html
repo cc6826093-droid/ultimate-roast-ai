@@ -42,4 +42,164 @@ playPkSound('bell',1);playPkSound('cheer',1);scheduleCelebration(()=>playPkSound
 function showWinner(w){resetWinner();if(!w)return;const label=document.querySelectorAll('.pair label')[w==='A'?0:1];label.classList.add('pk-winner');const crown=document.createElement('span');crown.className='pk-crown';crown.textContent='👑';label.appendChild(crown);celebrate()}
 async function readImage(file){checkFile(file);return await createImageBitmap(file)}
 $('pkStart').onclick=async()=>{const b=$('pkStart'),token=++pkToken;b.disabled=true;stopVoice();resetWinner();for(const a of Object.values(pkSounds)){a.load()}$('pkResult').textContent='👁️ AI 正在分析两位选手...';try{const [a,bb]=await Promise.all([readImage($('pkA').files[0]),readImage($('pkB').files[0])]);const c=document.createElement('canvas');c.width=1000;c.height=650;const ctx=c.getContext('2d');ctx.fillStyle='#1a1020';ctx.fillRect(0,0,1000,650);function draw(im,left){const scale=Math.min(480/im.width,555/im.height),w=im.width*scale,h=im.height*scale;ctx.drawImage(im,left+(480-w)/2,50+(555-h)/2,w,h)}draw(a,10);draw(bb,510);a.close();bb.close();ctx.font='bold 35px sans-serif';ctx.fillStyle='#fff';ctx.fillText('A',30,40);ctx.fillText('B',530,40);const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.82));if(!blob)throw Error('照片合成失败');const opening=openings[pkRound++%openings.length];const prompt=`这是双人造型PK合成图，左半边标A，右半边标B。请认真观察照片中实际可见的穿搭、发型、表情、拍摄姿势和背景，分别用幽默且生动的口语评价A和B。不要臆测看不见的细节，不要攻击身份、种族或身体特征。开头请自然使用「${opening}」，禁止使用「不是哥们」或「不是哥儿们」开场。必须有明确胜负，最后单独输出一行「最终胜者：A获胜」或「最终胜者：B获胜」。`;let text=await requestRoast(new File([blob],'pk.jpg',{type:'image/jpeg'}),prompt);if(token!==pkToken)return;text=text.replace(/^\s*不是哥(?:们|儿们)[，,。！!\s]*/,'').trim();if(!text.startsWith(opening))text=opening+'，'+text;let winner=getWinner(text);if(!winner){winner=/(?:A|选手A)[^。！？\n]{0,30}(?:更胜一筹|表现更好)/i.test(text)?'A':/(?:B|选手B)[^。！？\n]{0,30}(?:更胜一筹|表现更好)/i.test(text)?'B':null}if(!winner){$('pkResult').textContent=text+'\n\n⚖️ AI 未明确宣布胜者，请再试一次。';return}$('pkResult').textContent=text;showWinner(winner);award('pk')}catch(e){$('pkResult').textContent='⚠️ '+e.message}finally{b.disabled=false}};
-</script></body></html>
+</script>
+<!-- 🔥 10 回合 AI 斗嘴擂台 -->
+<style>
+#battleChat{max-height:360px;overflow-y:auto;background:#100b18;border:1px solid #744268;border-radius:16px;padding:15px;margin:14px 0}
+.battleMsg{padding:12px 15px;border-radius:14px;margin:10px 0;white-space:pre-wrap;line-height:1.7;overflow-wrap:anywhere}
+.battleUser{background:#45304f;margin-left:12%}
+.battleAI{background:#301526;border:1px solid #a74778;margin-right:12%}
+#battleInput{width:100%;box-sizing:border-box;padding:14px;background:#140e1a;color:white;border:1px solid #805477;border-radius:12px;font-size:16px}
+#battleSend,#battleReset{border:0;border-radius:12px;padding:13px 20px;font-weight:bold;cursor:pointer}
+#battleSend{background:#ff3299;color:#fff}
+#battleReset{background:#49354c;color:#fff}
+#battleSend:disabled{opacity:.5}
+</style>
+
+<section class="panel" id="battleSection" style="margin-top:24px;padding:22px;border:1px solid #a34d84;border-radius:20px;background:#251429;color:white">
+  <h2>🔥 10 回合 AI 斗嘴擂台</h2>
+  <p>你负责抬杠，AI 负责回嘴。看看谁先词穷！</p>
+  <p id="battleCount">第 0 / 10 回合</p>
+  <div id="battleChat" aria-live="polite">
+    <div class="battleMsg battleAI">👁️ 审判官：来，第一句话你先说。我倒要看看你能杠出什么花样。</div>
+  </div>
+  <textarea id="battleInput" rows="3" maxlength="500" placeholder="输入你想反驳审判官的话……"></textarea>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+    <button id="battleSend" type="button">🎤 发送，开始斗嘴</button>
+    <button id="battleReset" type="button">🔄 重新开局</button>
+  </div>
+  <p id="battleStatus" style="color:#ffb7db"></p>
+</section>
+
+<script>
+(() => {
+  "use strict";
+
+  const API_BASE = "https://wispy-sun-18eb.cc6826093.workers.dev";
+  const chat = document.getElementById("battleChat");
+  const input = document.getElementById("battleInput");
+  const send = document.getElementById("battleSend");
+  const reset = document.getElementById("battleReset");
+  const count = document.getElementById("battleCount");
+  const status = document.getElementById("battleStatus");
+
+  let round = 0;
+  let busy = false;
+  let history = [];
+  let audio = null;
+  let session = 0;
+
+  function addMessage(who, message) {
+    const div = document.createElement("div");
+    div.className = "battleMsg " + (who === "user" ? "battleUser" : "battleAI");
+    div.textContent = (who === "user" ? "🗣️ 你：" : "👁️ 审判官：") + message;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function stopAudio() {
+    if (audio) {
+      audio.pause();
+      audio.src = "";
+      audio = null;
+    }
+  }
+
+  async function speakReply(message, currentSession) {
+    try {
+      const response = await fetch(API_BASE + "/api/speech", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({text: message})
+      });
+      if (!response.ok) throw new Error("语音生成失败");
+      const blob = await response.blob();
+      if (currentSession !== session) return;
+      const url = URL.createObjectURL(blob);
+      stopAudio();
+      audio = new Audio(url);
+      audio.onended = () => URL.revokeObjectURL(url);
+      await audio.play();
+    } catch (error) {
+      status.textContent = "🔇 文字回复成功，但语音暂时无法播放。";
+    }
+  }
+
+  send.addEventListener("click", async () => {
+    const message = input.value.trim();
+    if (!message || busy || round >= 10) return;
+
+    const currentSession = session;
+    busy = true;
+    send.disabled = true;
+    stopAudio();
+    status.textContent = "👁️ 审判官正在组织反击……";
+
+    addMessage("user", message);
+    input.value = "";
+
+    try {
+      const response = await fetch(API_BASE + "/api/argue", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          message,
+          round: round + 1,
+          history
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "AI 接口暂时不可用");
+      }
+
+      const reply = data.reply || data.response || data.text;
+      if (typeof reply !== "string" || !reply.trim()) {
+        throw new Error("后端没有返回斗嘴内容");
+      }
+      if (currentSession !== session) return;
+
+      round++;
+      count.textContent = "第 " + round + " / 10 回合";
+      addMessage("ai", reply);
+      history.push({role:"user",content:message});
+      history.push({role:"assistant",content:reply});
+
+      if (round === 10) {
+        status.textContent = "🏁 十回合结束！想再吵就重新开局。";
+        send.disabled = true;
+      } else {
+        status.textContent = "🔥 轮到你反击！";
+      }
+
+      speakReply(reply, currentSession);
+    } catch (error) {
+      if (currentSession === session) {
+        status.textContent = "⚠️ " + error.message;
+        addMessage("ai", "刚刚信号掉线了，这回合不算，重新发送试试。");
+      }
+    } finally {
+      if (currentSession === session) {
+        busy = false;
+        send.disabled = round >= 10;
+      }
+    }
+  });
+
+  reset.addEventListener("click", () => {
+    session++;
+    round = 0;
+    busy = false;
+    history = [];
+    stopAudio();
+    chat.replaceChildren();
+    addMessage("ai", "重新开庭！来，这回你准备怎么反驳我？");
+    count.textContent = "第 0 / 10 回合";
+    status.textContent = "";
+    input.value = "";
+    send.disabled = false;
+  });
+})();
+</script>
+</body></html>
