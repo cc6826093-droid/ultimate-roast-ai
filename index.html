@@ -131,6 +131,9 @@ $('pkStart').onclick=async()=>{const b=$('pkStart'),token=++pkToken;b.disabled=t
   send.addEventListener("click", async () => {
     const message = input.value.trim();
     if (!message || busy || round >= 10) return;
+    if (round === 5) {
+  document.dispatchEvent(new Event("battleRoundSix"));
+    }
 
     const currentSession = session;
     busy = true;
@@ -166,11 +169,9 @@ $('pkStart').onclick=async()=>{const b=$('pkStart'),token=++pkToken;b.disabled=t
       round++;
       count.textContent = "第 " + round + " / 10 回合";
       addMessage("ai", reply);
-      if (round === 6) {
-  document.dispatchEvent(new Event("battleRoundSix"));
-      }
+                 
       history.push({role:"user",content:message});
-      history.push({role:"assistant",content:reply});
+      history.push({role:"assistant",content:reply);
 
       if (round === 10) {
         status.textContent = "🏁 十回合结束！想再吵就重新开局。";
@@ -381,7 +382,7 @@ $('pkStart').onclick=async()=>{const b=$('pkStart'),token=++pkToken;b.disabled=t
     const n = parseInt(count.textContent.match(/\d+/)?.[0] || "0", 10);
     const input = document.getElementById("battleInput");
 
-    if (n === 6) {
+    if (n === 5) {
       finalStarted = true;
       const music = sounds.battle;
 music.pause();
