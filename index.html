@@ -118,7 +118,10 @@ $('pkStart').onclick=async()=>{const b=$('pkStart'),token=++pkToken;b.disabled=t
       const url = URL.createObjectURL(blob);
       stopAudio();
       audio = new Audio(url);
-      audio.onended = () => URL.revokeObjectURL(url);
+      audio.onended = () => {
+  URL.revokeObjectURL(url);
+  document.dispatchEvent(new Event("battleSpeechEnded"));
+};
       await audio.play();
     } catch (error) {
       status.textContent = "🔇 文字回复成功，但语音暂时无法播放。";
@@ -320,6 +323,7 @@ $('pkStart').onclick=async()=>{const b=$('pkStart'),token=++pkToken;b.disabled=t
 
   let finalStarted = false;
   let finished = false;
+  let waitingForFinalSpeech = false;
   let timers = [];
 
   function play(name, volume = 0.8) {
@@ -374,7 +378,7 @@ $('pkStart').onclick=async()=>{const b=$('pkStart'),token=++pkToken;b.disabled=t
     const n = parseInt(count.textContent.match(/\d+/)?.[0] || "0", 10);
     const input = document.getElementById("battleInput");
 
-    if (n === 9 && input && input.value.trim()) {
+    if (n === 7 && input && input.value.trim()) {
       finalStarted = true;
       play("battle", 0.45);
     }
@@ -387,7 +391,7 @@ $('pkStart').onclick=async()=>{const b=$('pkStart'),token=++pkToken;b.disabled=t
 
     if (n === 10) {
       // 留时间让最后一段 AI 语音播放
-      later(finishBattle, 12000);
+      waitingForFinalSpeech = true;
     }
   });
 
@@ -396,7 +400,12 @@ $('pkStart').onclick=async()=>{const b=$('pkStart'),token=++pkToken;b.disabled=t
     characterData: true,
     subtree: true
   });
-
+document.addEventListener("battleSpeechEnded", () => {
+  if (waitingForFinalSpeech && !finished) {
+    waitingForFinalSpeech = false;
+    finishBattle();
+  }
+});
   reset?.addEventListener("click", () => {
     stopAll();
     finalStarted = false;
