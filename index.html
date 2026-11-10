@@ -380,7 +380,14 @@ $('pkStart').onclick=async()=>{const b=$('pkStart'),token=++pkToken;b.disabled=t
 
     if (n === 7 && input && input.value.trim()) {
       finalStarted = true;
-      play("battle", 0.45);
+      const music = sounds.battle;
+music.pause();
+music.currentTime = 0;
+music.volume = 0.8;
+music.load();
+music.play().catch(error => {
+  console.error("战斗音乐播放失败：", error);
+});
     }
   });
 
