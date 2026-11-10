@@ -294,4 +294,114 @@ $('pkStart').onclick=async()=>{const b=$('pkStart'),token=++pkToken;b.disabled=t
   };
 })();
 </script>
+
+<!-- 第十回合终极决战音效 -->
+<script>
+(() => {
+  const files = {
+    battle: "tatamusic-battle-warrior-fighting-drums-478210.mp3",
+    fail: "universfield-funny-fail-02-277575.mp3",
+    laugh1: "lagzjackson-funny-laughing-sound-effect-205565.mp3",
+    laugh2: "mangaletp-funny-laughing-406018.mp3"
+  };
+
+  const sounds = {};
+  for (const [name, file] of Object.entries(files)) {
+    sounds[name] = new Audio(file);
+    sounds[name].preload = "auto";
+  }
+
+  const send = document.getElementById("battleSend");
+  const reset = document.getElementById("battleReset");
+  const count = document.getElementById("battleCount");
+  const chat = document.getElementById("battleChat");
+
+  if (!send || !count || !chat) return;
+
+  let finalStarted = false;
+  let finished = false;
+  let timers = [];
+
+  function play(name, volume = 0.8) {
+    const a = sounds[name];
+    a.pause();
+    a.currentTime = 0;
+    a.volume = volume;
+    a.play().catch(() => {});
+  }
+
+  function stopAll() {
+    timers.forEach(clearTimeout);
+    timers = [];
+    Object.values(sounds).forEach(a => {
+      a.pause();
+      a.currentTime = 0;
+    });
+  }
+
+  function later(fn, ms) {
+    timers.push(setTimeout(fn, ms));
+  }
+
+  function finishBattle() {
+    if (finished) return;
+    finished = true;
+
+    sounds.battle.pause();
+
+    play("fail", 1);
+    later(() => play("laugh1", 0.9), 2200);
+    later(() => play("laugh2", 1), 6500);
+
+    const result = document.createElement("div");
+    result.style.cssText =
+      "padding:20px;margin-top:15px;text-align:center;" +
+      "border:2px solid gold;border-radius:16px;" +
+      "background:#35152b;color:#ffd700;" +
+      "font-size:22px;font-weight:bold";
+
+    result.textContent =
+      "🏆 审判官获胜！十回合都打完了，" +
+      "你这嘴硬程度倒是值得颁个奖！";
+
+    chat.appendChild(result);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  send.addEventListener("click", () => {
+    if (finalStarted || finished) return;
+
+    const n = parseInt(count.textContent.match(/\d+/)?.[0] || "0", 10);
+    const input = document.getElementById("battleInput");
+
+    if (n === 9 && input && input.value.trim()) {
+      finalStarted = true;
+      play("battle", 0.45);
+    }
+  });
+
+  const observer = new MutationObserver(() => {
+    if (!finalStarted || finished) return;
+
+    const n = parseInt(count.textContent.match(/\d+/)?.[0] || "0", 10);
+
+    if (n === 10) {
+      // 留时间让最后一段 AI 语音播放
+      later(finishBattle, 12000);
+    }
+  });
+
+  observer.observe(count, {
+    childList: true,
+    characterData: true,
+    subtree: true
+  });
+
+  reset?.addEventListener("click", () => {
+    stopAll();
+    finalStarted = false;
+    finished = false;
+  });
+})();
+</script>
 </body></html>
