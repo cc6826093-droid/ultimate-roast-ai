@@ -447,4 +447,187 @@ $('stop').onclick=()=>{if(audio){audio.pause();audio.currentTime=0}state('idle',
   update();
 })();
 </script>
+
+<style>
+#pkCelebration{
+  position:fixed;inset:0;z-index:999;
+  pointer-events:none;overflow:hidden;
+}
+.pk-confetti{
+  position:absolute;top:-35px;
+  width:10px;height:22px;
+  border-radius:2px;
+  animation:pkFall 1.5s ease-in forwards;
+}
+@keyframes pkFall{
+  0%{transform:translateY(-40px) rotate(0);opacity:1}
+  100%{transform:translateY(110vh) rotate(850deg);opacity:0}
+}
+#pkVoiceControls{
+  display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;
+}
+#pkVoiceControls button{flex:1}
+</style>
+
+<script>
+(()=>{
+ const section=document.getElementById('pkSection');
+ const result=document.getElementById('pkResult');
+ const start=document.getElementById('pkStart');
+ if(!section||!result||!start)return;
+
+ const controls=document.createElement('div');
+ controls.id='pkVoiceControls';
+ controls.innerHTML=`
+ <button id="pkSpeak">🎙️ 朗读 PK 锐评</button>
+ <button id="pkStop" class="secondary">⏹ 停止语音</button>`;
+ result.after(controls);
+
+ let pkAudio=null;
+ let pkAudioURL=null;
+ let lastCelebrated='';
+ let audioContext=null;
+
+ function stopVoice(){
+   if(pkAudio){pkAudio.pause();pkAudio=null}
+   if(pkAudioURL){
+     URL.revokeObjectURL(pkAudioURL);
+     pkAudioURL=null;
+   }
+ }
+
+ document.getElementById('pkStop').onclick=stopVoice;
+
+ async function playVoice(){
+   const text=result.textContent.trim();
+   if(!text||text.startsWith('⚠️')||
+      text.includes('正在分析')||
+      text.includes('等待两位'))return;
+
+   stopVoice();
+   const button=document.getElementById('pkSpeak');
+   button.disabled=true;
+   button.textContent='🎙️ 正在生成语音...';
+
+   try{
+     const res=await fetch(
+       'https://wispy-sun-18eb.cc6826093.workers.dev/api/speech',
+       {
+         method:'POST',
+         headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({text:text.slice(0,800)})
+       }
+     );
+     if(!res.ok)throw Error('语音服务暂不可用');
+     pkAudioURL=URL.createObjectURL(await res.blob());
+     pkAudio=new Audio(pkAudioURL);
+     pkAudio.onended=stopVoice;
+     await pkAudio.play();
+   }catch(e){
+     alert('语音播放失败：'+e.message);
+   }finally{
+     button.disabled=false;
+     button.textContent='🎙️ 朗读 PK 锐评';
+   }
+ }
+
+ document.getElementById('pkSpeak').onclick=playVoice;
+
+ function celebrate(){
+   document.getElementById('pkCelebration')?.remove();
+   const layer=document.createElement('div');
+   layer.id='pkCelebration';
+   document.body.appendChild(layer);
+
+   const colors=['#ffd700','#ff3998','#65e9ff',
+                 '#ffffff','#b57aff','#ff8533'];
+
+   for(let i=0;i<85;i++){
+     const piece=document.createElement('i');
+     piece.className='pk-confetti';
+     piece.style.left=Math.random()*100+'%';
+     piece.style.background=colors[i%colors.length];
+     piece.style.animationDelay=Math.random()*.25+'s';
+     piece.style.width=(6+Math.random()*8)+'px';
+     layer.appendChild(piece);
+   }
+
+   setTimeout(()=>layer.remove(),1750);
+   playCheers();
+ }
+
+ function playCheers(){
+   try{
+     const AC=window.AudioContext||window.webkitAudioContext;
+     if(!AC)return;
+     audioContext=audioContext||new AC();
+     if(audioContext.state==='suspended')audioContext.resume();
+     const ctx=audioContext;
+     const now=ctx.currentTime;
+
+     // 短暂的庆祝欢呼音效
+     for(let i=0;i<9;i++){
+       const osc=ctx.createOscillator();
+       const gain=ctx.createGain();
+       const t=now+i*.075;
+       osc.type=i%2?'triangle':'sawtooth';
+       osc.frequency.setValueAtTime(380+i*33,t);
+       osc.frequency.exponentialRampToValueAtTime(650+i*28,t+.18);
+       gain.gain.setValueAtTime(.0001,t);
+       gain.gain.exponentialRampToValueAtTime(.018,t+.03);
+       gain.gain.exponentialRampToValueAtTime(.0001,t+.25);
+       osc.connect(gain).connect(ctx.destination);
+       osc.start(t);osc.stop(t+.26);
+     }
+
+     // 模拟掌声的短噪声
+     const buffer=ctx.createBuffer(1,ctx.sampleRate*.08,ctx.sampleRate);
+     const data=buffer.getChannelData(0);
+     for(let i=0;i<data.length;i++)
+       data[i]=(Math.random()*2-1)*.6;
+
+     for(let i=0;i<8;i++){
+       const source=ctx.createBufferSource();
+       const gain=ctx.createGain();
+       source.buffer=buffer;
+       gain.gain.value=.07;
+       source.connect(gain).connect(ctx.destination);
+       source.start(now+i*.13);
+     }
+   }catch(e){console.warn('庆祝音效不可用',e)}
+ }
+
+ // 用户点击 PK 时提前激活声音
+ start.addEventListener('click',()=>{
+   stopVoice();
+   lastCelebrated='';
+   try{
+     const AC=window.AudioContext||window.webkitAudioContext;
+     if(AC){
+       audioContext=audioContext||new AC();
+       audioContext.resume();
+     }
+   }catch(e){}
+ });
+
+ new MutationObserver(()=>{
+   const text=result.textContent.trim();
+   if(!text||text.startsWith('⚠️')||
+      text.includes('正在分析')||
+      text.includes('等待两位'))return;
+
+   if(text===lastCelebrated)return;
+
+   // 等原有皇冠脚本识别胜者
+   setTimeout(()=>{
+     const winner=section.querySelector('.pk-winner');
+     if(!winner||text===lastCelebrated)return;
+     lastCelebrated=text;
+     celebrate();
+   },120);
+ }).observe(result,{
+   childList:true,characterData:true,subtree:true
+ });
+})();
+</script>
 </body></html>
