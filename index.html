@@ -202,4 +202,96 @@ $('pkStart').onclick=async()=>{const b=$('pkStart'),token=++pkToken;b.disabled=t
   });
 })();
 </script>
+
+<!-- AI斗嘴擂台：玩家语音转文字 -->
+<script>
+(() => {
+  const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+  const input = document.getElementById("battleInput");
+  const send = document.getElementById("battleSend");
+
+  if (!input || !send) return;
+
+  const mic = document.createElement("button");
+  mic.type = "button";
+  mic.textContent = "🎤 语音输入";
+  mic.style.cssText = `
+    background:#ff3299;
+    color:white;
+    border:0;
+    border-radius:12px;
+    padding:13px 18px;
+    margin-top:12px;
+    margin-right:10px;
+    font-weight:bold;
+    cursor:pointer;
+  `;
+
+  input.insertAdjacentElement("afterend", mic);
+
+  if (!SpeechRecognition) {
+    mic.disabled = true;
+    mic.textContent = "🎤 当前浏览器不支持语音识别";
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = "zh-CN";
+  recognition.continuous = false;
+  recognition.interimResults = true;
+
+  let listening = false;
+  let originalText = "";
+
+  mic.onclick = () => {
+    if (listening) {
+      recognition.stop();
+      return;
+    }
+
+    originalText = input.value.trim();
+
+    try {
+      recognition.start();
+    } catch (e) {
+      mic.textContent = "🎤 请重试";
+    }
+  };
+
+  recognition.onstart = () => {
+    listening = true;
+    mic.textContent = "🔴 正在听…点击结束";
+  };
+
+  recognition.onresult = (event) => {
+    let transcript = "";
+
+    for (let i = 0; i < event.results.length; i++) {
+      transcript += event.results[i][0].transcript;
+    }
+
+    input.value = originalText
+      ? originalText + " " + transcript
+      : transcript;
+  };
+
+  recognition.onerror = (event) => {
+    if (event.error === "not-allowed") {
+      mic.textContent = "🎤 请允许麦克风权限";
+    } else {
+      mic.textContent = "🎤 识别失败，点击重试";
+    }
+  };
+
+  recognition.onend = () => {
+    listening = false;
+    if (!mic.textContent.includes("请允许")) {
+      mic.textContent = "🎤 语音输入";
+    }
+  };
+})();
+</script>
 </body></html>
