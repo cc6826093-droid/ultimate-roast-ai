@@ -171,7 +171,7 @@ $('pkStart').onclick=async()=>{const b=$('pkStart'),token=++pkToken;b.disabled=t
       addMessage("ai", reply);
                  
       history.push({role:"user",content:message});
-      history.push({role:"assistant",content:reply);
+      history.push({role:"assistant",content:reply});
 
       if (round === 10) {
         status.textContent = "🏁 十回合结束！想再吵就重新开局。";
