@@ -400,10 +400,13 @@ music.play().catch(error => {
 
     const n = parseInt(count.textContent.match(/\d+/)?.[0] || "0", 10);
 
-    if (n === 10) {
-      // 留时间让最后一段 AI 语音播放
-      waitingForFinalSpeech = true;
-    }
+   if (n === 10 && !waitingForFinalSpeech) {
+  waitingForFinalSpeech = true;
+
+  // 备用结算：防止语音结束事件丢失
+  waitingForFinalSpeech = false;
+finishBattle();
+   }
   });
 
   observer.observe(count, {
